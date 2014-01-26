@@ -1,4 +1,4 @@
-var sphereShape, sphereBody, world, physicsMaterial, walls = [], balls = [], ballMeshes = [], boxes = [], boxMeshes = [];
+var player, worldPhy, physicsMaterial, walls = [], boxes = [], boxMeshes = [];
 
 var camera, scene, renderer;
 var geometry, material, mesh;
@@ -10,25 +10,23 @@ var instructions = document.getElementById('instructions');
 var havePointerLock = 'pointerLockElement' in document || 'mozPointerLockElement' in document || 'webkitPointerLockElement' in document;
 
 var dt = 1 / 60;
-var ballShape = new CANNON.Sphere(0.2);
-var ballGeometry = new THREE.SphereGeometry(ballShape.radius);
-var shootDirection = new THREE.Vector3();
-var shootVelo = 15;
-var projector = new THREE.Projector();
 
-$(document).ready(function(){
+var BULLET_DATAS = new BulletDatas();
+var BULLET_MANAGER = new BulletManager();
+
+$(document).ready(function() {
   if (havePointerLock) {
     initPointerLock();
   } else {
     instructions.innerHTML = 'Your browser doesn\'t seem to support Pointer Lock API';
   }
-  
+
   initCannon();
   init();
   animate();
 });
 
-function initPointerLock(){
+function initPointerLock() {
   var element = document.body;
 
   var pointerlockchange = function(event) {
@@ -49,7 +47,7 @@ function initPointerLock(){
   var pointerlockerror = function(event) {
     instructions.style.display = '';
   }
-  
+
   // Hook pointer lock state change events
   document.addEventListener('pointerlockchange', pointerlockchange, false);
   document.addEventListener('mozpointerlockchange', pointerlockchange, false);
@@ -58,7 +56,7 @@ function initPointerLock(){
   document.addEventListener('pointerlockerror', pointerlockerror, false);
   document.addEventListener('mozpointerlockerror', pointerlockerror, false);
   document.addEventListener('webkitpointerlockerror', pointerlockerror, false);
-  
+
   instructions.addEventListener('click', function(event) {
     instructions.style.display = 'none';
 
@@ -89,22 +87,22 @@ function initPointerLock(){
 
 function initCannon() {
   // Setup our world
-  world = new CANNON.World();
-  world.quatNormalizeSkip = 0;
-  world.quatNormalizeFast = false;
+  worldPhy = new CANNON.World();
+  worldPhy.quatNormalizeSkip = 0;
+  worldPhy.quatNormalizeFast = false;
 
-  world.defaultContactMaterial.contactEquationStiffness = 1e9;
-  world.defaultContactMaterial.contactEquationRegularizationTime = 4;
-  
+  worldPhy.defaultContactMaterial.contactEquationStiffness = 1e9;
+  worldPhy.defaultContactMaterial.contactEquationRegularizationTime = 4;
+
   var solver = new CANNON.GSSolver();
   solver.iterations = 7;
   solver.tolerance = 0.1;
 
-  world.solver = new CANNON.SplitSolver(solver);
+  worldPhy.solver = new CANNON.GSSolver(solver);
 
-  world.gravity.set(0, -9.78, 0);
+  worldPhy.gravity.set(0, -9.78, 0);
   //Broadphase compute an conservative approximate list of colliding pairs
-  world.broadphase = new CANNON.NaiveBroadphase();
+  worldPhy.broadphase = new CANNON.NaiveBroadphase();
 
   // Create a slippery material (friction coefficient = 0.0)
   physicsMaterial = new CANNON.Material("slipperyMaterial");
@@ -114,21 +112,17 @@ function initCannon() {
           0.3 // restitution
           );
   // We must add the contact materials to the world
-  world.addContactMaterial(physicsContactMaterial);
+  worldPhy.addContactMaterial(physicsContactMaterial);
 
-  // Create a sphere
-  var mass = 5, radius = 1.3;
-  sphereShape = new CANNON.Sphere(radius);
-  sphereBody = new CANNON.RigidBody(mass, sphereShape, physicsMaterial);
-  sphereBody.position.set(0, 5, 0);
-  sphereBody.linearDamping = 0.9;
-  world.add(sphereBody);
+  // Create a player
+  var pos = {x: 0, y: 5, z: 0};
+  player = new PlayerEntity(pos);
 
   // Create a plane
   var groundShape = new CANNON.Plane();
   var groundBody = new CANNON.RigidBody(0, groundShape, physicsMaterial);
   groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-  world.add(groundBody);
+  worldPhy.add(groundBody);
 }
 
 function init() {
@@ -143,7 +137,7 @@ function init() {
   light = new THREE.SpotLight(0xffffff);
   light.position.set(10, 30, 20);
   light.target.position.set(0, 0, 0);
-  
+
   light.castShadow = true;
 
   light.shadowCameraNear = 20;
@@ -154,10 +148,10 @@ function init() {
   light.shadowMapDarkness = 0.7;
   light.shadowMapWidth = 2 * 512;
   light.shadowMapHeight = 2 * 512;
-    
+
   scene.add(light);
 
-  controls = new PointerLockControls(camera, sphereBody);
+  controls = new PointerLockControls(camera, player.body);
   scene.add(controls.getObject());
 
   // floor
@@ -180,7 +174,7 @@ function init() {
   document.body.appendChild(renderer.domElement);
 
   window.addEventListener('resize', onWindowResize, false);
-  
+
   // Add boxes
   var halfExtents = new CANNON.Vec3(1, 1, 1);
   var boxShape = new CANNON.Box(halfExtents);
@@ -191,7 +185,7 @@ function init() {
     var z = (Math.random() - 0.5) * 20;
     var boxBody = new CANNON.RigidBody(5, boxShape);
     var boxMesh = new THREE.Mesh(boxGeometry, material);
-    world.add(boxBody);
+    worldPhy.add(boxBody);
     scene.add(boxMesh);
     boxBody.position.set(x, y, z);
     boxMesh.position.set(x, y, z);
@@ -220,7 +214,7 @@ function init() {
     boxMesh.useQuaternion = true;
     boxMesh.castShadow = true;
     boxMesh.receiveShadow = true;
-    world.add(boxbody);
+    worldPhy.add(boxbody);
     scene.add(boxMesh);
     boxes.push(boxbody);
     boxMeshes.push(boxMesh);
@@ -229,8 +223,8 @@ function init() {
       // Connect this body to the last one
       var c1 = new CANNON.PointToPointConstraint(boxbody, new CANNON.Vec3(-size, size + space, 0), last, new CANNON.Vec3(-size, -size - space, 0));
       var c2 = new CANNON.PointToPointConstraint(boxbody, new CANNON.Vec3(size, size + space, 0), last, new CANNON.Vec3(size, -size - space, 0));
-      world.addConstraint(c1);
-      world.addConstraint(c2);
+      worldPhy.addConstraint(c1);
+      worldPhy.addConstraint(c2);
     } else {
       mass = 0.3;
     }
@@ -247,13 +241,9 @@ function onWindowResize() {
 function animate() {
   requestAnimationFrame(animate);
   if (controls.enabled) {
-    world.step(dt);
-
-    // Update ball positions
-    for (var i = 0; i < balls.length; i++) {
-      balls[i].position.copy(ballMeshes[i].position);
-      balls[i].quaternion.copy(ballMeshes[i].quaternion);
-    }
+    BULLET_MANAGER.dropDeads();
+    worldPhy.step(dt);    
+    BULLET_MANAGER.update();
 
     // Update box positions
     for (var i = 0; i < boxes.length; i++) {
@@ -267,40 +257,6 @@ function animate() {
   time = Date.now();
 }
 
-function getShootDir(targetVec) {
-  var vector = targetVec;
-  targetVec.set(0, 0, 1);
-  projector.unprojectVector(vector, camera);
-  var ray = new THREE.Ray(sphereBody.position, vector.sub(sphereBody.position).normalize());
-  targetVec.x = ray.direction.x;
-  targetVec.y = ray.direction.y;
-  targetVec.z = ray.direction.z;
-}
-
 window.addEventListener("click", function(e) {
-  if (controls.enabled == true) {
-    var x = sphereBody.position.x;
-    var y = sphereBody.position.y;
-    var z = sphereBody.position.z;
-    var ballBody = new CANNON.RigidBody(1, ballShape);
-    var ballMesh = new THREE.Mesh(ballGeometry, material);
-    world.add(ballBody);
-    scene.add(ballMesh);
-    ballMesh.castShadow = true;
-    ballMesh.receiveShadow = true;
-    balls.push(ballBody);
-    ballMeshes.push(ballMesh);
-    getShootDir(shootDirection);
-    ballBody.velocity.set(shootDirection.x * shootVelo,
-            shootDirection.y * shootVelo,
-            shootDirection.z * shootVelo);
-
-    // Move the ball outside the player sphere
-    x += shootDirection.x * (sphereShape.radius * 1.02 + ballShape.radius);
-    y += shootDirection.y * (sphereShape.radius * 1.02 + ballShape.radius);
-    z += shootDirection.z * (sphereShape.radius * 1.02 + ballShape.radius);
-    ballBody.position.set(x, y, z);
-    ballMesh.position.set(x, y, z);
-    ballMesh.useQuaternion = true;
-  }
+  player.shoot();
 });
