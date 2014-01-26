@@ -6,7 +6,7 @@ function BulletDatas() {
   arguments.callee._singletonInstance = this;
 
   this.velocity = 20;
-  this.shape = new CANNON.Sphere(0.1);
+  this.shape = new CANNON.Sphere(0.01);
   this.geometry = new THREE.SphereGeometry(this.shape.radius);
   this.mass = 1;
 }
