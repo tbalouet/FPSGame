@@ -26,6 +26,7 @@ var PointerLockControls = function(camera, cannonBody) {
 
   var contactNormal = new CANNON.Vec3(); // Normal in the contact, pointing *out* of whatever the player touched
   var upAxis = new CANNON.Vec3(0, 1, 0);
+  
   cannonBody.addEventListener("collide", function(e) {
     var contact = e.contact;
 

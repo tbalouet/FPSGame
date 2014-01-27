@@ -63,25 +63,26 @@ function initPointerLock() {
     // Ask the browser to lock the pointer
     element.requestPointerLock = element.requestPointerLock || element.mozRequestPointerLock || element.webkitRequestPointerLock;
 
-    if (/Firefox/i.test(navigator.userAgent)) {
-      var fullscreenchange = function(event) {
-        if (document.fullscreenElement === element || document.mozFullscreenElement === element || document.mozFullScreenElement === element) {
-          document.removeEventListener('fullscreenchange', fullscreenchange);
-          document.removeEventListener('mozfullscreenchange', fullscreenchange);
-
-          element.requestPointerLock();
-        }
-      }
-
-      document.addEventListener('fullscreenchange', fullscreenchange, false);
-      document.addEventListener('mozfullscreenchange', fullscreenchange, false);
-
-      element.requestFullscreen = element.requestFullscreen || element.mozRequestFullscreen || element.mozRequestFullScreen || element.webkitRequestFullscreen;
-
-      element.requestFullscreen();
-    } else {
+//UNCOMMENT TO ALLOW FULLSCREEN
+//    if (/Firefox/i.test(navigator.userAgent)) {
+//      var fullscreenchange = function(event) {
+//        if (document.fullscreenElement === element || document.mozFullscreenElement === element || document.mozFullScreenElement === element) {
+//          document.removeEventListener('fullscreenchange', fullscreenchange);
+//          document.removeEventListener('mozfullscreenchange', fullscreenchange);
+//
+//          element.requestPointerLock();
+//        }
+//      }
+//
+//      document.addEventListener('fullscreenchange', fullscreenchange, false);
+//      document.addEventListener('mozfullscreenchange', fullscreenchange, false);
+//
+//      element.requestFullscreen = element.requestFullscreen || element.mozRequestFullscreen || element.mozRequestFullScreen || element.webkitRequestFullscreen;
+//
+//      element.requestFullscreen();
+//    } else {
       element.requestPointerLock();
-    }
+//    }
   }, false);
 }
 
@@ -179,12 +180,13 @@ function init() {
   var halfExtents = new CANNON.Vec3(1, 1, 1);
   var boxShape = new CANNON.Box(halfExtents);
   var boxGeometry = new THREE.CubeGeometry(halfExtents.x * 2, halfExtents.y * 2, halfExtents.z * 2);
+  var redMaterial = new THREE.MeshLambertMaterial({color: 0xff0000});
   for (var i = 0; i < 7; i++) {
     var x = (Math.random() - 0.5) * 20;
     var y = 1 + (Math.random() - 0.5) * 1;
     var z = (Math.random() - 0.5) * 20;
     var boxBody = new CANNON.RigidBody(5, boxShape);
-    var boxMesh = new THREE.Mesh(boxGeometry, material);
+    var boxMesh = new THREE.Mesh(boxGeometry, redMaterial);
     worldPhy.add(boxBody);
     scene.add(boxMesh);
     boxBody.position.set(x, y, z);
@@ -252,11 +254,15 @@ function animate() {
     }
   }
 
-  controls.update(Date.now() - time);
+  player.update(Date.now() - time);
   renderer.render(scene, camera);
   time = Date.now();
 }
 
-window.addEventListener("click", function(e) {
-  player.shoot();
+window.addEventListener("mousedown", function(e) {
+  player.openFire();
+});
+
+window.addEventListener("mouseup", function(e) {
+  player.ceaseFire();
 });

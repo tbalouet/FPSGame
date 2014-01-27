@@ -5,10 +5,12 @@ function BulletDatas() {
     return arguments.callee._singletonInstance;
   arguments.callee._singletonInstance = this;
 
-  this.velocity = 20;
-  this.shape = new CANNON.Sphere(0.01);
+  this.velocity = 50;
+  this.fireRate = 0.5;
+  this.mass = 0.001;
+  this.radius = 0.01;
+  this.shape = new CANNON.Sphere(this.radius);
   this.geometry = new THREE.SphereGeometry(this.shape.radius);
-  this.mass = 1;
 }
 
 function BulletManager(){

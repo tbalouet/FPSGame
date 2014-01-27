@@ -4,8 +4,12 @@ var PlayerEntity = function(pos) {
     y: pos.y,
     z: pos.z
   };
-  this.mass = 5;
+  this.mass = 80000;
   this.shapeRadius = 1.3;
+  this.height = 2;
+  
+  this.shooting = false;
+  this.fireTime = 0;
   
   this.projector = new THREE.Projector();
 
@@ -35,13 +39,30 @@ PlayerEntity.prototype.shoot = function() {
   this.getShootDir(dirShoot);
 
   // Move the ball outside the player sphere
-  x += dirShoot.x * (this.shape.radius * 1.02 + BULLET_DATAS.shape.radius);
-  y += dirShoot.y * (this.shape.radius * 1.02 + BULLET_DATAS.shape.radius);
-  z += dirShoot.z * (this.shape.radius * 1.02 + BULLET_DATAS.shape.radius);
+//  x += dirShoot.x * (this.shape.radius * 1.02 + BULLET_DATAS.shape.radius);
+//  y += dirShoot.y * (this.shape.radius * 1.02 + BULLET_DATAS.shape.radius);
+//  z += dirShoot.z * (this.shape.radius * 1.02 + BULLET_DATAS.shape.radius);
 
   var posShoot = {x: x, y: y, z: z};
   var newBullet = new BulletEntity(dirShoot, posShoot);
 };
 
-PlayerEntity.prototype.update = function() {
+PlayerEntity.prototype.openFire = function(){
+  this.shooting = true;
+  this.fireTime = Date.now();
+}
+
+PlayerEntity.prototype.ceaseFire = function(){
+  this.shooting = false;
+}
+
+PlayerEntity.prototype.update = function(delta) {
+  controls.update(delta);
+  if(this.shooting){
+    this.fireTime = (Date.now() - this.fireTime);
+    if(this.fireTime >= BULLET_DATAS.fireRate){
+      this.shoot();
+      this.fireTime = Date.now();
+    }
+  }
 };
